@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Mini POS — Inventario</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#f7f4ef;--bg2:#ede9e1;--bg3:#e0dbd0;
+  --white:#ffffff;--ink:#1c1814;--ink2:#4b4438;--ink3:#9b8f7f;--ink4:#c4b8a8;
+  --amber:#b87333;--amber2:#d4924a;--amber-light:#fdf3e7;
+  --green:#2d6a4f;--green-bg:#eaf4ee;
+  --red:#b53232;--red-bg:#fdecea;
+  --yellow:#8a6200;--yellow-bg:#fdf6e3;
+  --border:#ddd8cf;--border2:#ccc5b8;
+  --shadow-sm:0 1px 4px rgba(28,24,20,.07);
+  --shadow:0 4px 20px rgba(28,24,20,.1);
+  --shadow-lg:0 12px 48px rgba(28,24,20,.16);
+  --r:10px;
+  --serif:'Playfair Display',serif;
+  --sans:'Outfit',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);display:flex;flex-direction:column;overflow:hidden}
+
+/* HEADER */
+header{background:var(--ink);height:58px;display:flex;align-items:center;padding:0 28px;justify-content:space-between;flex-shrink:0;border-bottom:2px solid var(--amber);z-index:100}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--amber),var(--amber2));display:flex;align-items:center;justify-content:center;font-size:1rem}
+.logo-text{font-family:var(--serif);font-size:1.15rem;color:var(--white);font-weight:600;letter-spacing:-.2px}
+.logo-badge{font-size:.62rem;font-weight:500;letter-spacing:.5px;color:var(--ink3);padding:2px 8px;border-radius:20px;border:1px solid #333;background:rgba(255,255,255,.04)}
+.header-right{display:flex;align-items:center;gap:14px}
+.db-status{display:flex;align-items:center;gap:6px;font-size:.72rem;font-weight:500;color:var(--ink3);padding:5px 12px;border-radius:20px;border:1px solid #2e2a26;background:rgba(255,255,255,.04);transition:all .3s}
+.db-status .dot{width:6px;height:6px;border-radius:50%;background:#555;transition:all .3s;flex-shrink:0}
+.db-status.ok{color:#74c99a}.db-status.ok .dot{background:#3fba74;box-shadow:0 0 6px #3fba74}
+.db-status.err{color:#e07070}.db-status.err .dot{background:var(--red)}
+#reloj{font-size:.75rem;color:#555;font-weight:300;font-variant-numeric:tabular-nums}
+
+/* LAYOUT */
+.app-body{display:grid;grid-template-columns:1fr 340px;flex:1;min-height:0;overflow:hidden}
+
+/* COL PRODUCTOS */
+.col-productos{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
+.col-header{padding:18px 22px 14px;border-bottom:1px solid var(--border);background:var(--white);flex-shrink:0;display:flex;flex-direction:column;gap:11px}
+.col-top-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.col-title{font-family:var(--serif);font-size:1.25rem;font-weight:700;color:var(--ink);line-height:1}
+.col-subtitle{font-size:.72rem;color:var(--ink3);margin-top:3px}
+.chips-row{display:flex;gap:7px;flex-wrap:wrap}
+.chip{padding:4px 11px;border-radius:20px;font-size:.68rem;font-weight:600;display:flex;align-items:center;gap:5px;border:1px solid var(--border)}
+.chip .num{font-size:.78rem;font-weight:700}
+.chip.green{background:var(--green-bg);border-color:#a8d8bc;color:var(--green)}
+.chip.red{background:var(--red-bg);border-color:#f0b8b8;color:var(--red)}
+.chip.gray{background:var(--bg2);color:var(--ink2)}
+.search-box{display:flex;align-items:center;gap:9px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r);padding:9px 14px;transition:border-color .18s}
+.search-box:focus-within{border-color:var(--amber);background:var(--white)}
+.search-box svg{color:var(--ink4);flex-shrink:0}
+.search-box input{border:none;outline:none;background:transparent;font-family:var(--sans);font-size:.88rem;color:var(--ink);flex:1}
+.search-box input::placeholder{color:var(--ink4)}
+
+/* GRID */
+.productos-scroll{flex:1;overflow-y:auto;padding:18px 20px}
+.productos-scroll::-webkit-scrollbar{width:5px}
+.productos-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.productos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px}
+
+/* CARD */
+.prod-card{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);padding:16px 14px 14px;cursor:pointer;transition:all .2s cubic-bezier(.25,.8,.25,1);display:flex;flex-direction:column;gap:9px;position:relative;overflow:hidden;animation:cardIn .28s ease both}
+@keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.prod-card:hover{border-color:var(--amber);box-shadow:var(--shadow);transform:translateY(-2px)}
+.prod-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--amber),var(--amber2));transform:scaleX(0);transform-origin:left;transition:transform .22s}
+.prod-card:hover::after{transform:scaleX(1)}
+.prod-card.sin-stock{background:var(--bg2);opacity:.58;cursor:not-allowed}
+.prod-card.sin-stock:hover{border-color:var(--border);box-shadow:none;transform:none}
+.prod-card.sin-stock::after{display:none}
+.prod-emoji{font-size:1.4rem;width:40px;height:40px;border-radius:9px;background:var(--amber-light);display:flex;align-items:center;justify-content:center}
+.prod-nombre{font-size:.82rem;font-weight:600;line-height:1.35;color:var(--ink);flex:1}
+.prod-precio{font-family:var(--serif);font-size:1.08rem;color:var(--amber);font-weight:700}
+.prod-footer{display:flex;align-items:center;justify-content:space-between;margin-top:auto}
+.stock-badge{font-size:.62rem;font-weight:600;padding:3px 8px;border-radius:20px}
+.stock-badge.ok{background:var(--green-bg);color:var(--green)}
+.stock-badge.bajo{background:var(--yellow-bg);color:var(--yellow)}
+.stock-badge.cero{background:var(--red-bg);color:var(--red)}
+.btn-add{width:26px;height:26px;border-radius:7px;background:var(--bg);border:1.5px solid var(--border2);color:var(--ink2);cursor:pointer;font-size:1.1rem;font-weight:700;display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1}
+.btn-add:hover{background:var(--amber);border-color:var(--amber);color:var(--white)}
+.empty-state{grid-column:1/-1;text-align:center;padding:48px 20px;color:var(--ink4);display:flex;flex-direction:column;align-items:center;gap:10px}
+.empty-state span{font-size:2rem;opacity:.4}
+.empty-state p{font-size:.85rem;line-height:1.6}
+.skel{border-radius:var(--r);height:148px;background:linear-gradient(90deg,var(--bg2) 25%,var(--bg3) 50%,var(--bg2) 75%);background-size:200% 100%;animation:shimmer 1.3s infinite}
+@keyframes shimmer{0%{background-position:200% 0}to{background-position:-200% 0}}
+
+/* COL CARRITO */
+.col-carrito{display:flex;flex-direction:column;background:var(--white);overflow:hidden}
+.cart-header{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.cart-title-wrap{display:flex;align-items:center;gap:10px}
+.cart-title{font-family:var(--serif);font-size:1.15rem;font-weight:700}
+.cart-badge{min-width:22px;height:22px;border-radius:11px;background:var(--amber);color:var(--white);font-size:.68rem;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 6px;transition:transform .2s}
+.cart-badge.bump{transform:scale(1.4)}
+.btn-trash{background:none;border:none;color:var(--ink4);cursor:pointer;font-size:.72rem;font-weight:500;font-family:var(--sans);padding:5px 9px;border-radius:6px;transition:all .15s}
+.btn-trash:hover{background:var(--red-bg);color:var(--red)}
+.cart-list{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.cart-list::-webkit-scrollbar{width:4px}
+.cart-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.cart-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;color:var(--ink4);padding:32px 20px}
+.cart-empty-icon{font-size:2.2rem;opacity:.35}
+.cart-empty p{font-size:.8rem;line-height:1.6}
+.cart-item{border:1px solid var(--border);border-radius:9px;padding:11px 12px;display:flex;flex-direction:column;gap:7px;background:var(--bg);animation:itemIn .2s ease}
+@keyframes itemIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}
+.ci-top{display:flex;align-items:flex-start;gap:8px}
+.ci-nombre{flex:1;font-size:.8rem;font-weight:600;line-height:1.35;color:var(--ink)}
+.btn-del{background:none;border:none;color:var(--ink4);cursor:pointer;width:18px;height:18px;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:.85rem;transition:all .15s;flex-shrink:0}
+.btn-del:hover{color:var(--red);background:var(--red-bg)}
+.ci-bottom{display:flex;align-items:center;gap:8px}
+.qty-wrap{display:flex;align-items:center;gap:5px}
+.q-btn{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--border2);background:var(--white);color:var(--ink2);cursor:pointer;font-weight:700;font-size:.85rem;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.q-btn:hover{background:var(--ink);border-color:var(--ink);color:var(--white)}
+.q-num{font-size:.82rem;font-weight:700;min-width:20px;text-align:center;color:var(--ink)}
+.ci-price{margin-left:auto;font-family:var(--serif);font-size:.95rem;color:var(--amber);font-weight:700}
+
+/* FOOTER CARRITO */
+.cart-footer{border-top:1px solid var(--border);padding:14px 18px;display:flex;flex-direction:column;gap:12px;flex-shrink:0}
+.totales{display:flex;flex-direction:column;gap:5px}
+.tot-row{display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--ink3)}
+.tot-row span:last-child{font-weight:500;color:var(--ink2)}
+.tot-row.main{padding-top:9px;border-top:1px dashed var(--border2);margin-top:3px;font-family:var(--serif);font-size:1.05rem;color:var(--ink)}
+.tot-row.main span:last-child{color:var(--amber);font-weight:700}
+.mp-label{font-size:.67rem;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3)}
+.mp-opts{display:flex;gap:6px;margin-top:6px}
+.mp-opt{flex:1;padding:7px 4px;border-radius:8px;border:1.5px solid var(--border);background:transparent;font-family:var(--sans);font-size:.7rem;font-weight:500;color:var(--ink3);cursor:pointer;transition:all .15s;text-align:center}
+.mp-opt:hover{border-color:var(--border2);color:var(--ink)}
+.mp-opt.sel{background:var(--ink);border-color:var(--ink);color:var(--white);font-weight:600}
+.btn-cobrar{width:100%;padding:13px;border-radius:var(--r);border:none;background:linear-gradient(135deg,var(--amber) 0%,var(--amber2) 100%);color:var(--white);font-family:var(--serif);font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 4px 14px rgba(184,115,51,.4)}
+.btn-cobrar:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 7px 22px rgba(184,115,51,.55)}
+.btn-cobrar:disabled{opacity:.38;cursor:not-allowed;box-shadow:none;transform:none}
+.btn-cobrar.loading{background:var(--bg2);color:var(--ink3);box-shadow:none;transform:none;cursor:wait}
+
+/* TOASTS */
+#toasts{position:fixed;bottom:22px;right:22px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{padding:11px 16px;border-radius:9px;font-size:.8rem;font-weight:500;display:flex;align-items:center;gap:9px;min-width:230px;max-width:340px;box-shadow:var(--shadow-lg);animation:toastIn .25s ease}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.toast.ok{background:var(--green);color:#fff}
+.toast.err{background:var(--red);color:#fff}
+.toast.warn{background:#7a5500;color:#fff}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(28,24,20,.55);backdrop-filter:blur(5px);z-index:800;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .22s}
+.modal-bg.open{opacity:1;pointer-events:all}
+.modal{background:var(--white);border-radius:16px;padding:28px;width:92%;max-width:400px;box-shadow:var(--shadow-lg);border-top:3px solid var(--amber);transform:translateY(16px);transition:transform .22s}
+.modal-bg.open .modal{transform:translateY(0)}
+.modal-title{font-family:var(--serif);font-size:1.35rem;font-weight:700;text-align:center;margin-bottom:18px;color:var(--ink)}
+.recibo{background:var(--bg);border:1px dashed var(--border2);border-radius:9px;padding:16px;font-family:'Courier New',monospace;font-size:.75rem;line-height:1.9;color:var(--ink2)}
+.r-center{text-align:center}.r-bold{font-weight:700;color:var(--ink)}
+.r-sep{border:none;border-top:1px dashed var(--border2);margin:8px 0}
+.r-row{display:flex;justify-content:space-between}
+.r-total{font-weight:700;font-size:.85rem;color:var(--amber)}
+.modal-btns{display:flex;gap:9px;margin-top:18px}
+.modal-btns button{flex:1;padding:11px;border-radius:9px;border:none;cursor:pointer;font-family:var(--sans);font-size:.82rem;font-weight:600;transition:all .15s}
+.btn-nueva{background:linear-gradient(135deg,var(--amber),var(--amber2));color:var(--white);box-shadow:0 3px 10px rgba(184,115,51,.35)}
+.btn-nueva:hover{box-shadow:0 5px 16px rgba(184,115,51,.5);transform:translateY(-1px)}
+.btn-close-m{background:var(--bg2);color:var(--ink2);border:1px solid var(--border)!important}
+.btn-close-m:hover{background:var(--bg3)}
+
+@media(max-width:700px){
+  body{overflow:auto}.app-body{grid-template-columns:1fr;overflow:visible}
+  .col-productos{overflow:visible}.productos-scroll{overflow:visible}
+  .col-carrito{min-height:380px}.header{padding:0 16px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">🛒</div>
+    <span class="logo-text">Mini POS</span>
+    <span class="logo-badge">INVENTARIO</span>
+  </div>
+  <div class="header-right">
+    <div class="db-status" id="db-status">
+      <div class="dot"></div><span id="db-text">Conectando…</span>
+    </div>
+    <span id="reloj"></span>
+  </div>
+</header>
+
+<div class="app-body">
+
+  <!-- ══ PRODUCTOS ══ -->
+  <section class="col-productos">
+    <div class="col-header">
+      <div class="col-top-row">
+        <div>
+          <div class="col-title">Catálogo de Productos</div>
+          <div class="col-subtitle" id="sub-texto">Cargando…</div>
+        </div>
+        <div class="chips-row">
+          <div class="chip gray">Total <span class="num" id="chip-total">—</span></div>
+          <div class="chip green">Disponibles <span class="num" id="chip-disp">—</span></div>
+          <div class="chip red">Sin stock <span class="num" id="chip-cero">—</span></div>
+        </div>
+      </div>
+      <div class="search-box">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input type="text" id="buscar" placeholder="Buscar producto por nombre…" oninput="filtrar()"/>
+      </div>
+    </div>
+    <div class="productos-scroll">
+      <div class="productos-grid" id="lista-productos">
+        <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+        <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ CARRITO ══ -->
+  <aside class="col-carrito">
+    <div class="cart-header">
+      <div class="cart-title-wrap">
+        <div class="cart-title">Carrito</div>
+        <div class="cart-badge" id="cart-badge">0</div>
+      </div>
+      <button class="btn-trash" onclick="limpiarCarrito()">✕ Limpiar</button>
+    </div>
+
+    <div class="cart-list" id="cart-list">
+      <div class="cart-empty">
+        <div class="cart-empty-icon">🛍️</div>
+        <p>Tu carrito está vacío.<br/>Haz clic en un producto<br/>para agregarlo.</p>
+      </div>
+    </div>
+
+    <div class="cart-footer">
+      <div class="totales" id="totales" style="display:none">
+        <div class="tot-row"><span>Subtotal</span><span id="subtotal">$0.00</span></div>
+        <div class="tot-row main"><span>Total</span><span id="total">$0.00</span></div>
+      </div>
+      <div>
+        <div class="mp-label">Método de pago</div>
+        <div class="mp-opts">
+          <button class="mp-opt sel" data-mp="efectivo"     onclick="elegirMP(this)">💵 Efectivo</button>
+          <button class="mp-opt"     data-mp="tarjeta"       onclick="elegirMP(this)">💳 Tarjeta</button>
+          <button class="mp-opt"     data-mp="transferencia" onclick="elegirMP(this)">🏦 Transfer</button>
+        </div>
+      </div>
+      <button class="btn-cobrar" id="btn-cobrar" disabled onclick="finalizarVenta()">
+        Finalizar Venta
+      </button>
+    </div>
+  </aside>
+
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modal-bg" onclick="bgClick(event)">
+  <div class="modal">
+    <div class="modal-title">✅ Venta Registrada</div>
+    <div class="recibo" id="recibo-content"></div>
+    <div class="modal-btns">
+      <button class="btn-nueva" onclick="nuevaVenta()">+ Nueva Venta</button>
+      <button class="btn-close-m" onclick="cerrarModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ══════════════════════════════════════
+   CONFIG — mismo origen porque Flask
+   sirve este HTML desde /
+   Si abres el .html directo en el browser
+   cambia API_BASE = 'http://localhost:5000'
+══════════════════════════════════════ */
+const API_BASE = '';
+
+let todos   = [];
+let carrito = [];
+let metodo  = 'efectivo';
+
+const $   = id => document.getElementById(id);
+const fmt = n  => '$' + parseFloat(n || 0).toFixed(2);
+
+/* RELOJ */
+function tick(){ $('reloj').textContent = new Date().toLocaleTimeString('es-MX',{hour12:false}); }
+tick(); setInterval(tick,1000);
+
+/* TOAST */
+function toast(msg, tipo='ok', ms=3500){
+  const el = document.createElement('div');
+  el.className = `toast ${tipo}`;
+  el.innerHTML = `<span>${tipo==='ok'?'✓':tipo==='err'?'✕':'⚠'}</span><span>${msg}</span>`;
+  $('toasts').prepend(el);
+  setTimeout(()=>el.remove(), ms);
+}
+
+/* EMOJI POR NOMBRE */
+function emoji(n){
+  n = n.toLowerCase();
+  if(/coca|pepsi|refresc/.test(n))     return '🥤';
+  if(/agua|bonaf/.test(n))             return '💧';
+  if(/leche|lala/.test(n))             return '🥛';
+  if(/pan|bimbo/.test(n))              return '🍞';
+  if(/galleta|oreo/.test(n))           return '🍪';
+  if(/sabritas|papa|snack/.test(n))    return '🍟';
+  if(/huevo/.test(n))                  return '🥚';
+  if(/arroz|cereal/.test(n))           return '🌾';
+  if(/frijol/.test(n))                 return '🫘';
+  if(/aceite|nutrioli/.test(n))        return '🫙';
+  if(/café|cafe/.test(n))              return '☕';
+  if(/jabón|jabon|deterg/.test(n))     return '🧴';
+  return '📦';
+}
+
+/* ══ HEALTH / STATUS ══ */
+async function checkDB(){
+  try{
+    const r = await fetch(`${API_BASE}/api/productos`,{method:'HEAD'}).catch(()=>null);
+    const el = $('db-status');
+    if(r && r.ok){ el.className='db-status ok'; $('db-text').textContent='MySQL conectado'; }
+    else throw new Error();
+  }catch{
+    $('db-status').className='db-status err';
+    $('db-text').textContent='Sin conexión';
+  }
+}
+checkDB(); setInterval(checkDB,20000);
+
+/* ══ CARGAR PRODUCTOS → GET /api/productos ══ */
+async function cargarProductos(){
+  try{
+    const r = await fetch(`${API_BASE}/api/productos`);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const data = await r.json();
+    /* tu backend devuelve lista directa */
+    todos = Array.isArray(data) ? data : (data.data || []);
+    renderProductos(todos);
+    $('chip-total').textContent = todos.length;
+    $('chip-disp').textContent  = todos.filter(p=>p.stock_actual>0).length;
+    $('chip-cero').textContent  = todos.filter(p=>p.stock_actual===0).length;
+    $('sub-texto').textContent  = `${todos.length} productos en catálogo`;
+    $('db-status').className='db-status ok';
+    $('db-text').textContent='MySQL conectado';
+  }catch(e){
+    $('lista-productos').innerHTML=`
+      <div class="empty-state">
+        <span>⚠️</span>
+        <p>No se pudo cargar el catálogo.<br/>
+        Asegúrate de que Flask esté corriendo.<br/>
+        <small style="color:var(--red)">${e.message}</small></p>
+      </div>`;
+    $('sub-texto').textContent='Error de conexión';
+    $('db-status').className='db-status err';
+    $('db-text').textContent='Sin conexión';
+    toast('Error cargando productos: '+e.message,'err',6000);
+  }
+}
+
+function renderProductos(lista){
+  const g = $('lista-productos');
+  if(!lista.length){
+    g.innerHTML=`<div class="empty-state"><span>🔍</span><p>Sin resultados</p></div>`;
+    return;
+  }
+  g.innerHTML = lista.map((p,i)=>{
+    const sin  = p.stock_actual===0;
+    const bajo = !sin && p.stock_actual<=10;
+    const cls  = sin?'cero':bajo?'bajo':'ok';
+    const lbl  = sin?'Sin stock':bajo?`⚠ ${p.stock_actual} unid.`:`${p.stock_actual} en stock`;
+    return `
+    <div class="prod-card ${sin?'sin-stock':''}" style="animation-delay:${Math.min(i*.04,.5)}s"
+         onclick="${sin?'':` agregarItem(${p.id})`}">
+      <div class="prod-emoji">${emoji(p.nombre)}</div>
+      <div class="prod-nombre">${p.nombre}</div>
+      <div class="prod-precio">${fmt(p.precio)}</div>
+      <div class="prod-footer">
+        <span class="stock-badge ${cls}">${lbl}</span>
+        ${sin?'':` <button class="btn-add" onclick="event.stopPropagation();agregarItem(${p.id})">+</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filtrar(){
+  const q = $('buscar').value.toLowerCase().trim();
+  renderProductos(q ? todos.filter(p=>p.nombre.toLowerCase().includes(q)) : todos);
+}
+
+/* ══ CARRITO ══ */
+function agregarItem(id){
+  const prod = todos.find(p=>p.id===id);
+  if(!prod||prod.stock_actual===0) return;
+  const en = carrito.find(i=>i.id===id);
+  if(en){
+    if(en.qty>=prod.stock_actual){ toast('Stock máximo alcanzado','warn'); return; }
+    en.qty++;
+  }else{
+    carrito.push({id,nombre:prod.nombre,precio:parseFloat(prod.precio),qty:1,stock:prod.stock_actual});
+  }
+  bumpBadge();
+  renderCarrito();
+}
+
+function cambiarQty(id,delta){
+  const it = carrito.find(i=>i.id===id);
+  if(!it) return;
+  it.qty = Math.max(0, Math.min(it.qty+delta, it.stock));
+  if(it.qty===0) carrito = carrito.filter(i=>i.id!==id);
+  renderCarrito();
+}
+function quitarItem(id){ carrito=carrito.filter(i=>i.id!==id); renderCarrito(); }
+function limpiarCarrito(){ carrito=[]; renderCarrito(); }
+
+function bumpBadge(){
+  const b=$('cart-badge');
+  b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump');
+  setTimeout(()=>b.classList.remove('bump'),300);
+}
+
+function renderCarrito(){
+  const list=$('cart-list');
+  $('cart-badge').textContent = carrito.reduce((s,i)=>s+i.qty,0);
+
+  if(!carrito.length){
+    list.innerHTML=`
+      <div class="cart-empty">
+        <div class="cart-empty-icon">🛍️</div>
+        <p>Tu carrito está vacío.<br/>Haz clic en un producto<br/>para agregarlo.</p>
+      </div>`;
+    $('totales').style.display='none';
+    $('btn-cobrar').disabled=true;
+    return;
+  }
+
+  let sub=0;
+  list.innerHTML = carrito.map(it=>{
+    const ln=it.precio*it.qty; sub+=ln;
+    return `
+    <div class="cart-item">
+      <div class="ci-top">
+        <div class="ci-nombre">${it.nombre}</div>
+        <button class="btn-del" onclick="quitarItem(${it.id})">✕</button>
+      </div>
+      <div class="ci-bottom">
+        <div class="qty-wrap">
+          <button class="q-btn" onclick="cambiarQty(${it.id},-1)">−</button>
+          <span class="q-num">${it.qty}</span>
+          <button class="q-btn" onclick="cambiarQty(${it.id},1)">+</button>
+        </div>
+        <div class="ci-price">${fmt(ln)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  $('subtotal').textContent=fmt(sub);
+  $('total').textContent=fmt(sub);
+  $('totales').style.display='flex';
+  $('totales').style.flexDirection='column';
+  $('btn-cobrar').disabled=false;
+}
+
+/* ══ MÉTODO DE PAGO ══ */
+function elegirMP(btn){
+  document.querySelectorAll('.mp-opt').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  metodo=btn.dataset.mp;
+}
+
+/* ══ FINALIZAR VENTA → POST /api/ventas ══
+   Payload exacto que espera tu routes.py:
+   { metodo_pago, items:[{producto_id, cantidad, precio_unitario}] }
+═════════════════════════════════════════ */
+async function finalizarVenta(){
+  if(!carrito.length) return;
+  const btn=$('btn-cobrar');
+  btn.disabled=true; btn.classList.add('loading'); btn.textContent='Procesando…';
+
+  const payload={
+    metodo_pago: metodo,
+    items: carrito.map(i=>({
+      producto_id:     i.id,
+      cantidad:        i.qty,
+      precio_unitario: i.precio,
+    }))
+  };
+
+  try{
+    const r = await fetch(`${API_BASE}/api/ventas`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload),
+    });
+    const data = await r.json();
+
+    if(!r.ok){
+      /* tu backend devuelve { error: '...' } en caso de fallo */
+      toast(data.error||'Error al procesar la venta','err',7000);
+    }else{
+      /* data es Venta.to_dict(): {id, metodo_pago, total, created_at, detalles:[...]} */
+      mostrarRecibo(data);
+      toast('¡Venta registrada correctamente!','ok');
+      cargarProductos();   // refresca el stock de la UI
+    }
+  }catch(e){
+    toast('Error de red: '+e.message,'err',7000);
+  }
+
+  btn.classList.remove('loading');
+  btn.disabled=false;
+  btn.textContent='Finalizar Venta';
+}
+
+/* ══ RECIBO ══ */
+function mostrarRecibo(venta){
+  /* venta.detalles tiene {producto_id, cantidad, precio_unitario, subtotal}
+     cruzamos con `todos` para mostrar el nombre del producto */
+  const fecha = venta.created_at
+    ? new Date(venta.created_at).toLocaleString('es-MX')
+    : new Date().toLocaleString('es-MX');
+
+  const lineas = (venta.detalles||[]).map(d=>{
+    const prod = todos.find(p=>p.id===d.producto_id);
+    const nom  = prod ? prod.nombre : `Producto #${d.producto_id}`;
+    return `<div class="r-row"><span>${nom} × ${d.cantidad}</span><span>${fmt(d.subtotal)}</span></div>`;
+  }).join('') || carrito.map(it=>
+    `<div class="r-row"><span>${it.nombre} × ${it.qty}</span><span>${fmt(it.precio*it.qty)}</span></div>`
+  ).join('');
+
+  $('recibo-content').innerHTML=`
+    <div class="r-center r-bold">MINI POS — RECIBO</div>
+    <div class="r-center" style="font-size:.68rem;color:#888">${fecha}</div>
+    <div class="r-center" style="font-size:.68rem;color:#888">Venta #${venta.id||'—'}</div>
+    <hr class="r-sep"/>
+    ${lineas}
+    <hr class="r-sep"/>
+    <div class="r-row r-total"><span>TOTAL</span><span>${fmt(venta.total)}</span></div>
+    <div class="r-row" style="margin-top:3px;font-size:.7rem;color:#888">
+      <span>Método</span><span>${(venta.metodo_pago||metodo).toUpperCase()}</span>
+    </div>
+    <hr class="r-sep"/>
+    <div class="r-center" style="color:#888;font-size:.7rem">¡Gracias por su compra!</div>
+  `;
+  $('modal-bg').classList.add('open');
+}
+
+function bgClick(e){ if(e.target===$('modal-bg')) cerrarModal(); }
+function cerrarModal(){ $('modal-bg').classList.remove('open'); }
+function nuevaVenta(){ cerrarModal(); limpiarCarrito(); }
+
+/* INICIO */
+cargarProductos();
+</script>
+</body>
+</html>
